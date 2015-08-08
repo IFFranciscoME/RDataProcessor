@@ -1,17 +1,8 @@
 # -- -------------------------------------------------------------------------------------------- #
-# -- meXBT Machine Learning, Artificial Intelligence and Stochastic calculus codes -------------- #
-# -- License: PRIVATE and Right Reserved -------------------------------------------------------- #
+# -- Initial Developer: FranciscoME ------------------------------------------------------------- #
+# -- GitHub Repossitory: https://github.com/IFFranciscoME/DataProcessor ------------------------- #
+# -- License: GNU General Public License -------------------------------------------------------- #
 # -- -------------------------------------------------------------------------------------------- #
-
-# -- Install and/or load packages dependencies -------------------------------------------------- #
-
-Pkg <- c("base","digest","downloader","fBasics","forecast","grid","gridExtra",
-"jsonlite","lubridate","moments","orderbook","openssl","PerformanceAnalytics","plyr","quantmod",
-"Quandl","reshape2","RCurl","stats","scales","simsalapar","tseries","TTR","TSA","xts","xts","zoo")
-
-inst <- Pkg %in% installed.packages()
-if(length(Pkg[!inst]) > 0) install.packages(Pkg[!inst])
-instpackages <- lapply(Pkg, library, character.only=TRUE)
 
 # -- AutoCorrelation and Partial AutoCorrelation Calculations and Graph ------------------------- #
 
@@ -38,4 +29,44 @@ AutoCorrelation <- function(x, type, YAxisText)
   plot.title = element_text(size = 14,vjust = 1), legend.position = "bottom",
   legend.title = element_blank(),legend.text = element_text(colour="blue",size = 10))
   return(facgg)
+}
+
+# -- -------------------------------------------------------------------------------------------- #
+# -- Stationarity Dickey-Fuller Test ------------------------------------------------------------ #
+# -- -------------------------------------------------------------------------------------------- #
+
+ADFTestedSeries <- function(DataFrame,Column,CnfLvl)
+{
+  d <- 0
+  Column <- Column
+  CnfLvl <- CnfLvl
+  DataFrame <- DataFrame
+  adfSeries <- adf.test(DataFrame[,Column])
+  if (adfSeries$p.value > CnfLvl)
+  { 
+    d <- 1
+    Serie1D <- data.frame(df_precios[-1,1],
+               diff(DataFrame[,2],diff = 1))
+    aSerie1D  <- adf.test(Serie1D[,2])
+    if (aSerie1D$p.value > CnfLvl)
+    {
+      d <- 2
+      Serie2D <- data.frame(Serie1D[-1,1],
+                 diff(Serie1D[,2],diff = 1))
+      aSerie2D <- adf.test(Serie2D[,2])
+      if (aSerie2D$p.value > CnfLvl)
+      {
+        d <- 3
+        Serie3D <- data.frame(Serie2D[-1,1],
+                   diff(Serie2D[,2],diff = 1))
+        aSerie3D <- adf.test(Serie3D[,2])
+        if (aSerie3D$p.value > CnfLvl)
+        {
+          message <- "Very Unstable Series"
+          StationarySeries <- data.frame(DataFrame)
+        } else StationarySeries <- data.frame(Series3D,d)
+      } else StationarySeries <- data.frame(Series2D,d)
+    } else StationarySeries <- data.frame(Series1D,d)
+  } else StationarySeries <- data.frame(DataFrame,d)
+  return (StationarySeries)
 }
