@@ -72,35 +72,32 @@ DDMaxMin <- function(Data,l) {
                            Count = NULL)
   
   PreciosHist$TimeStamp <- as.POSIXct(PreciosHist$TimeStamp, origin ="1970-01-01",
-                                      format = "%Y-%m-%d %H:%M")
+                                      format = "%Y-%m-%d %H:%M", tz = "America/Monterrey")
   PreciosHist[,2:5] <- round(PreciosHist[,2:5],5)
   
   FechasCH <- PreciosHist$TimeStamp
   
-  Fecha_HP1 <- as.POSIXct(Fecha_HP1, origin = "1970-01-01")
-  Fecha_HP2 <- as.POSIXct(Fecha_HP2, origin = "1970-01-01")
+  Fecha_HP1 <- as.POSIXct(Fecha_HP1, origin = "1970-01-01", tz = "America/Monterrey")
+  Fecha_HP2 <- as.POSIXct(Fecha_HP2, origin = "1970-01-01", tz = "America/Monterrey")
   
   FechaCercana1 <- which(abs(FechasCH -  Fecha_HP1) == min(abs(FechasCH - Fecha_HP1)))
   FechaCercana2 <- which(abs(FechasCH -  Fecha_HP2) == min(abs(FechasCH - Fecha_HP2)))
   
   PreciosHist_DD <- PreciosHist[FechaCercana1:FechaCercana2,]
-  Ind1 <- 1
-  Ind2 <- as.numeric(length(PreciosHist_DD[,1]))
   
   MaxHigh <- which.max(PreciosHist_DD$High)
   MinLow  <- which.min(PreciosHist_DD$Low)
   
   P0_OrdenMaxMin <- ifelse(MinLow <= MaxHigh, "MinLow", "MaxHigh")
   
-  P1_DDCompra <- (PreciosHist_DD$Open[Ind1] - PreciosHist_DD$Low[MinLow])*MultPip
-  P2_DDVenta  <- (PreciosHist_DD$High[MaxHigh] - PreciosHist_DD$Open[Ind2])*MultPip
+  P1_DD <- abs((Data$Open[l]  - Data$Low[l])*MultPip)
+  P2_DU <- abs((Data$High[l] - Data$Open[l])*MultPip)
   
   DDU_Final <- list(P0_OrdenMaxMin = P0_OrdenMaxMin,
-                    P1_DDCompra = P1_DDCompra,
-                    P2_DDVenta  = P2_DDVenta,
-                    P3_MaxHigh = PreciosHist$High[MaxHigh],
-                    P4_MinLow  = PreciosHist$Low[MinLow],
-                    iteracion = l)
+                    P1_DDCompra = P1_DD,
+                    P2_DDVenta  = P2_DU,
+                    P3_MaxHigh = Data$High[l],
+                    P4_MinLow  = Data$Low[l])
   
   return(DDU_Final)
 }
