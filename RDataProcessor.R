@@ -109,7 +109,7 @@ DD_DU <- function(Fecha_Inicial, Fecha_Final, Instrumento, Historicos, Grafica) 
   
   if(is.null(F_His)){
     
-    HisSpreads(OA_At,OA_Gn,OA_Da,OA_Ta,OA_Ak,OA_In,Fechas[x],Fechas[x+1], Count=NULL)
+    HisSpreads(OA_At,OA_Gn,OA_Da,OA_Ta,OA_Ak,Instrumento,Fechas[x],Fechas[x+1], Count=NULL)
     
   } else
     
