@@ -178,3 +178,216 @@ DD_DU_PnL <- function(Datos)  {
 
 return(cmaxx)
 }
+
+
+# -- -------------------------------------------------------------- Draw Down de una operacion -- #
+# -- -------------------------------------------------------------------------------------------- #
+
+DDU <- function(F_Inicial, F_Final, F_Inst, F_Ta, F_At, F_Ak) {
+  
+  Fecha_Inicial <- F_Inicial
+  Fecha_Final   <- F_Final
+  
+  if(weekdays.Date(as.Date(substr(Fecha_Inicial,1,10)), abbreviate = TRUE) == "mar") {
+    Fecha_Inicial <- as.Date(substr(Fecha_Inicial,1,10))-3
+  } else Fecha_Inicial <- as.Date(substr(Fecha_Inicial,1,10))-2
+  
+  if(weekdays.Date(as.Date(substr(Fecha_Final,1,10)), abbreviate = TRUE) == "jue") {
+    Fecha_Final   <- as.Date(substr(Fecha_Final,1,10))+3
+  } else Fecha_Final <- as.Date(substr(Fecha_Final,1,10))+2
+  
+  OA_HistMax <- Fecha_Inicial + 3
+  
+  if(Fecha_Final > OA_HistMax) {
+    
+    NPet <- ceiling(as.numeric(F_Final - F_Inicial)/2)
+    Indices <- sort(seq(0, 3*NPet, 3), decreasing = TRUE)
+    Fechas  <- c()
+    for(i in 1:length(Indices)) Fechas[i] <- as.character(Fecha_Final-Indices[i])
+    
+  } else {
+    Fechas  <- c(Fecha_Inicial, Fecha_Final)
+  }
+  
+  PreciosHist <- lapply(2:(length(Fechas)), function(x)
+    HisPrices(AccountType = F_At, Granularity = "M1",
+              DayAlign = 17, TimeAlign = F_Ta, Token = F_Ak,
+              Instrument = F_Inst ,Start =  Fechas[x-1],
+              End = Fechas[x], Count = NULL))
+  OA_Totales  <- do.call(rbind,PreciosHist)
+  OA_Totales  <- OA_Totales[,1:5]
+  
+  FechaCercana1 <- which(abs(OA_Totales$TimeStamp - F_Inicial) ==
+                           min(abs(OA_Totales$TimeStamp - F_Inicial)))[1]
+  FechaCercana2 <- which(abs(OA_Totales$TimeStamp - F_Final) ==
+                           min(abs(OA_Totales$TimeStamp - F_Final)))[1]
+  PreciosHist <- OA_Totales[FechaCercana1:FechaCercana2,]
+  
+  dd_min <- which.min(PreciosHist$Low)
+  dd_max <- which.max(PreciosHist$High)
+  
+  DD_Final <- list("Datos" = PreciosHist,
+                   "DD" = list("Orden" = ifelse(dd_min<dd_max, "Low", "High"),
+                               "Valores" = list("Low" = list("V_low" = PreciosHist$Low[dd_min],
+                                                             "F_low" = PreciosHist$TimeStamp[dd_min]),
+                                                "High" = list("V_high" = PreciosHist$High[dd_max],
+                                                              "F_high" = PreciosHist$TimeStamp[dd_max]))))
+  return(DD_Final)
+}
+
+## -- Prueba : Draw Down de una operacion
+# F_At <- "practice"
+# F_Ak <- "ada4a61b0d5bc0e5939365e01450b614-4121f84f01ad78942c46fc3ac777baa6"
+# F_Ta <- "America/Mexico_City"
+# F_In <- "EUR_USD"
+# F_Inicial <- as.POSIXct("2017-12-07 15:05:00", origin="1970-01-01")
+# F_Final   <- as.POSIXct("2017-12-07 22:15:00", origin="1970-01-01")
+# 
+# Datos <- DDU(F_Inicial, F_Final, F_In, F_Ta, F_At, F_Ak)
+
+# -- -------------------------------------------------------------------- PnL de una operacion -- #
+# -- -------------------------------------------------------------------------------------------- #
+
+PnL <- function(p_tipo, p_orden, p_open, p_high, p_low, p_close, p_mpip, p_vpip, p_tp, p_sl) {
+  
+  # i <- 2
+  # p_tipo  <- p_OA_Totales$Operacion_g[i]
+  # p_orden <- p_OA_Totales$Orden[i]
+  # p_open  <- p_OA_Totales$Open[i]
+  # p_high  <- p_OA_Totales$High[i]
+  # p_low   <- p_OA_Totales$Low[i]
+  # p_close <- p_OA_Totales$Close[i]
+  # p_mpip  <- 10000
+  # p_vpip  <- 1
+  # p_tp    <- 20
+  # p_sl    <- 10
+  
+  vl <- (p_open - p_low)*p_mpip
+  vc <- (p_open - p_close)*p_mpip
+  vh <- (p_open - p_high)*p_mpip
+  
+  ch <- (p_high - p_open)*p_mpip
+  cc <- (p_close - p_open)*p_mpip
+  cl <- (p_low - p_open)*p_mpip
+  
+  #  -- -------------------------------------------------- Venta + High primero + SI SL -- (1) -- #
+  if (p_tipo == -1 & p_orden == "High" & vh <= -p_sl){
+    mensaje <- "Caso (1): Venta & High primero & SL si alcanzado"
+    pnl_pip <- -p_sl
+    pnl_usd <- -p_sl*p_vpip
+    
+    #  -- ------------------------------------------ Venta + High primero + NO SL + SI TP -- (2) -- #
+  } else if (p_tipo == -1 & p_orden == "High" & vh > -p_sl & vl >= p_tp) {
+    mensaje <- "Caso (2): Venta & High primero & SL no alcanzado & TP si alcanzado"
+    pnl_pip <- p_tp
+    pnl_usd <- p_tp*p_vpip
+    
+    #  -- ---------------------------------- Venta + High primero + NO SL + NO TP + Close -- (3) -- #
+  } else if (p_tipo == -1 & p_orden == "High" & vh > -p_sl & vl < p_tp) {
+    mensaje <- "Caso (3): Venta & High primero & SL no alcanzado & TP no alcanzado & Cierre al close"
+    pnl_pip <- vc
+    pnl_usd <- vc*p_vpip
+    
+    #  -- --------------------------------------------------- Venta + Low primero + SI TP -- (4) -- #
+  } else if (p_tipo == -1 & p_orden == "Low" & vl >= p_tp) {
+    mensaje <- "Caso (4): Venta & Low primero & TP si alcanzado"
+    pnl_pip <- p_tp
+    pnl_usd <- p_tp*p_vpip
+    
+    #  -- ------------------------------------------- Venta + Low primero + NO TP + SI SL -- (5) -- #
+  } else if (p_tipo == -1 & p_orden == "Low" & vl < p_tp & vh <= -p_sl) {
+    mensaje <- "Caso (5): Venta & Low primero & TP no alcanzado & SL si alcanzado"
+    pnl_pip <- -p_sl
+    pnl_usd <- -p_sl*p_vpip
+    
+    #  -- ----------------------------------- Venta + Low primero + NO TP + NO SL + Close -- (6) -- #
+  } else if (p_tipo == -1 & p_orden == "Low" & vl < p_tp & vh > -p_sl) {
+    mensaje <- "Caso (6): Venta & Low primero & TP no alcanzado & SL no alcanzado & Cierre al close"
+    pnl_pip <- vc
+    pnl_usd <- vc*p_vpip
+    
+    #  -- ------------------------------------------------- Compra + High primero + SI TP -- (7) -- #
+  } else if (p_tipo == 1 & p_orden == "High" & p_tp <= ch) {
+    mensaje <- "Caso (7): Compra & High primero & TP si alcanzado"
+    pnl_pip <- p_tp
+    pnl_usd <- p_tp*p_vpip
+    
+    #  -- ----------------------------------------- Compra + High primero + NO TP + SI SL -- (8) -- #
+  } else if (p_tipo == 1 & p_orden == "High" & p_tp > ch & -p_sl > cl) {
+    mensaje <- "Caso (8): Compra & High primero & TP no alcanzado & SL si alcanzado"
+    pnl_pip <- -p_sl
+    pnl_usd <- -p_sl*p_vpip
+    
+    #  -- --------------------------------- Compra + High primero + NO TP + NO SL + Close -- (9) -- #
+  } else if (p_tipo == 1 & p_orden == "High" & p_tp > ch & -p_sl <= cl) {
+    mensaje <- "Caso (9): Compra & High primero & TP no alcanzado & SL no alcanzado & Cierre al close"
+    pnl_pip <- vc
+    pnl_usd <- vc*p_vpip
+    
+    #  -- ------------------------------------------------- Compra + Low primero + SI SL -- (10) -- #
+  } else if (p_tipo == 1 & p_orden == "Low" & -p_sl > cl) {
+    mensaje <- "Caso (10): Compra & Low primero & SL si alcanzado"
+    pnl_pip <- -p_sl
+    pnl_usd <- -p_sl*p_vpip
+    
+    #  -- ----------------------------------------- Compra + Low primero + NO SL + SI TP -- (11) -- #
+  } else if (p_tipo == 1 & p_orden == "Low" & -p_sl <= cl & p_tp <= ch) {
+    mensaje <- "Caso (11): Compra & Low primero & SL no alcanzado & TP si alcanzado"
+    pnl_pip <- p_tp
+    pnl_usd <- p_tp*p_vpip
+    
+    #  -- --------------------------------- Compra + Low primero + NO SL + NO TP + Close -- (12) -- #
+  } else if (p_tipo == 1 & p_orden == "Low" & -p_sl <= cl & p_tp > ch) {
+    mensaje <- "Caso (12): Compra & Low primero & SL no alcanzado & TP no alcanzado & Cierre al close"
+    pnl_pip <- cc
+    pnl_usd <- cc*p_vpip
+    
+  }
+  
+  Resultado <- list("mensaje" = mensaje, "pnl_pip" = pnl_pip, "pnl_usd" = pnl_usd)
+  
+  return(Resultado)
+}
+
+# -- -------------------------------------------------------- Bayes : P(H|E) = P(E|H)P(H)/P(E) -- #
+# -- -------------------------------------------------------------------------------------------- #
+
+BayesProb <- function(Datos, Estado, Direcc) {
+  
+  # Datos  <- p_Datos
+  # Estado <- p_Estado
+  # Direcc <- p_Direcc
+  
+  # -- -- P(E|H) = Proporción de veces que estuvo en estado actual y continuo la tendencia
+  D_EH_1 <- Datos[which(Datos[, Direcc] == Estado)+1, ] # Veces que estuvo en estado actual
+  D_EH_2 <- D_EH_1[which(D_EH_1[, Direcc] > Estado), ]  # Dado que estuvo, que si continuo
+  B_EH   <- round(length(D_EH_2[,1])/length(Datos[,1]), 6)
+  
+  # -- -- P(H) = Proporción de veces continuo la tendencia desde cualquier estado
+  D_H <- Datos[which(Datos[, Direcc] >= 2), ]
+  B_H <- round(length(D_H[,1])/length(Datos[,1]), 6)
+  
+  # -- -- P(E) = Proporción de veces que estuvo en el estado actual
+  D_E <- Datos[which(Datos[, Direcc] == Estado), ]
+  B_E <- round(length(D_E[,1])/length(Datos[,1]), 6)
+  
+  # -- -- P(H|E) = Probabilidad de continuar la tendencia dado que esté en un estado actual
+  B_HE <- round(B_EH*B_H/B_E, 6)
+  
+  # P(E|H) dado que esta en 3 cuantas veces siguio a 4
+  # P(H) cuantas veces siguio con una tendencia de n a n+1
+  # P(E) cuantas veces estuvo en 3
+  # P(H|E) que siga a 4 dado que esta en 3
+  
+  # P(E|H) can be greater than P(E), but P(E|H)P(H) should never be greater than P(E),
+  
+  Resultado <- list("EH" = list("B" = B_EH, "D" = D_EH_2,
+                                "M" = "P(E|H) dado estado actual haya continuado con la tendencia"),
+                    "H"  = list("B" = B_H,  "D" = D_H,
+                                "M" = "P(H) que continue con la tendencia"),
+                    "E"  = list("B" = B_E,  "D" = D_E,
+                                "M" = "P(E) de estado actual"),
+                    "HE" = list("B" = B_HE,
+                                "M" = "P(H|E) continue la tendencia dado que esta en estado actual"))
+  return(Resultado)
+}
