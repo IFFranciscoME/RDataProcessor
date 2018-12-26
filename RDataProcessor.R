@@ -67,9 +67,9 @@ return (StationarySeries)
 
 DD_DU <- function(Fecha_Inicial, Fecha_Final, Instrumento, Historicos, Grafica)  {
   
-  # Fecha_Inicial = as.character(ENT_DD_DU_OP$OpenTime[i])
-  # Fecha_Final = as.character(ENT_DD_DU_OP$CloseTime[i])
-  # Instrumento = ENT_DD_DU_OP$Symbol[i]
+  # Fecha_Inicial = as.POSIXct("2017-12-07 15:05:00", origin="1970-01-01")
+  # Fecha_Final = as.POSIXct("2017-12-07 22:15:00", origin="1970-01-01")
+  # Instrumento = "EUR_USD"
   # Historicos =  OA_Historicos[[ENT_DD_DU_OP$Symbol[i]]]
   # Grafica = FALSE
   
@@ -108,11 +108,11 @@ DD_DU <- function(Fecha_Inicial, Fecha_Final, Instrumento, Historicos, Grafica) 
   F_His <- Historicos
   
   if(is.null(F_His)){
-    
+
     HisSpreads(OA_At,OA_Gn,OA_Da,OA_Ta,OA_Ak,F_Ins,F_Ini[x],F_Fin[x+1], Count=NULL)
     
   } else
-    
+
   F1 <- which(abs(F_His$TimeStamp-F_Ini) == min(abs(F_His$TimeStamp - F_Ini)))
   F2 <- which(abs(F_His$TimeStamp-F_Fin) == min(abs(F_His$TimeStamp - F_Fin)))
     
@@ -183,10 +183,18 @@ return(cmaxx)
 # -- -------------------------------------------------------------- Draw Down de una operacion -- #
 # -- -------------------------------------------------------------------------------------------- #
 
-DDU <- function(F_Inicial, F_Final, F_Inst, F_Ta, F_At, F_Ak) {
+DDU <- function(F_Ini, F_Fin, F_In, F_Ta, F_At, F_Ak, F_Grafica) {
   
-  Fecha_Inicial <- F_Inicial
-  Fecha_Final   <- F_Final
+  F_At <- "practice"
+  F_Ak <- "ada4a61b0d5bc0e5939365e01450b614-4121f84f01ad78942c46fc3ac777baa6"
+  F_Ta <- "America/Mexico_City"
+  F_In <- "EUR_USD"
+  F_Ini <- as.POSIXct("2017-12-07 15:05:00", origin="1970-01-01")
+  F_Fin <- as.POSIXct("2017-12-07 22:15:00", origin="1970-01-01")
+  F_Grafica <- TRUE
+  
+  Fecha_Inicial <- F_Ini
+  Fecha_Final   <- F_Fin
   
   if(weekdays.Date(as.Date(substr(Fecha_Inicial,1,10)), abbreviate = TRUE) == "mar") {
     Fecha_Inicial <- as.Date(substr(Fecha_Inicial,1,10))-3
@@ -212,7 +220,7 @@ DDU <- function(F_Inicial, F_Final, F_Inst, F_Ta, F_At, F_Ak) {
   PreciosHist <- lapply(2:(length(Fechas)), function(x)
     HisPrices(AccountType = F_At, Granularity = "M1",
               DayAlign = 17, TimeAlign = F_Ta, Token = F_Ak,
-              Instrument = F_Inst ,Start =  Fechas[x-1],
+              Instrument = F_In ,Start =  Fechas[x-1],
               End = Fechas[x], Count = NULL))
   OA_Totales  <- do.call(rbind,PreciosHist)
   OA_Totales  <- OA_Totales[,1:5]
@@ -226,7 +234,76 @@ DDU <- function(F_Inicial, F_Final, F_Inst, F_Ta, F_At, F_Ak) {
   dd_min <- which.min(PreciosHist$Low)
   dd_max <- which.max(PreciosHist$High)
   
-  DD_Final <- list("Datos" = PreciosHist,
+  if(F_Grafica)  {
+    
+    yscala <- seq(min(PreciosHist$Close), max(PreciosHist$Close),
+                  (max(PreciosHist$Close) - min(PreciosHist$Close))/10)
+    
+    MaxHigh_G <- which.max(PreciosHist$Close)
+    MinLow_G  <- which.min(PreciosHist$Close)
+    
+    Grafica <- ggplot(PreciosHist, aes(x=PreciosHist$TimeStamp)) + 
+                      geom_line(aes(y=PreciosHist$Close), size=.75) +
+      
+      # -- Vertical High
+      geom_segment(x = as.numeric(PreciosHist$TimeStamp[MaxHigh_G]),
+                   xend = as.numeric(PreciosHist$TimeStamp[MaxHigh_G]),
+                   y = 0, yend = as.numeric(PreciosHist$Close[MaxHigh_G]),
+                   linetype= 5, size=.75, colour = "dark grey", alpha=0.5) +
+      
+      # -- Horizontal High
+      geom_segment(x = 0, xend = PreciosHist$TimeStamp[MaxHigh_G],
+                   y = as.numeric(PreciosHist$Close[MaxHigh_G]),
+                   yend = as.numeric(PreciosHist$Close[MaxHigh_G]),
+                   linetype= 5, size=.75, colour = "dark grey", alpha=0.5) +
+      
+      # -- Punto Exterior High
+      geom_point(aes(x = PreciosHist$TimeStamp[MaxHigh_G],
+                     y=as.numeric(PreciosHist$Close[MaxHigh_G])), size=4, colour="steel blue") +
+      
+      # -- Punto Interior High
+      geom_point(aes(x = PreciosHist$TimeStamp[MaxHigh_G],
+                     y=as.numeric(PreciosHist$Close[MaxHigh_G])), size=2, colour="white") + 
+    
+      # -- Vertical Low
+      geom_segment(x = as.numeric(PreciosHist$TimeStamp[MinLow_G]),
+                   xend = as.numeric(PreciosHist$TimeStamp[MinLow_G]),
+                   y = 0, yend = as.numeric(PreciosHist$Close[MinLow_G]),
+                   linetype= 5, size=.75, colour = "dark grey", alpha=0.5) +
+      
+      # -- Horizontal Low
+      geom_segment(x = 0, xend = PreciosHist$TimeStamp[MinLow_G],
+                   y = as.numeric(PreciosHist$Close[MinLow_G]),
+                   yend = as.numeric(PreciosHist$Close[MinLow_G]),
+                   linetype= 5, size=.75, colour = "dark grey", alpha=0.5) +
+      
+      # -- Punto Exterior Low
+      geom_point(aes(x = PreciosHist$TimeStamp[MinLow_G],
+                     y=as.numeric(PreciosHist$Close[MinLow_G])),
+                 size=4, colour="steel blue") +
+     
+      # -- Punto Interior Low
+      geom_point(aes(x = PreciosHist$TimeStamp[MinLow_G],
+                     y=as.numeric(PreciosHist$Close[MinLow_G])),
+                 size=2, colour="white")  + 
+      
+      labs(x=NULL, y=NULL, title=NULL) +
+      scale_y_continuous(breaks = round(seq(round(min(PreciosHist$Close),6),
+                                            round(max(PreciosHist$Close),6),
+                                            (round(max(PreciosHist$Close),6) - 
+                                             round(min(PreciosHist$Close),6))/10),4))
+    
+   
+    
+    
+    
+    
+    
+    
+    
+  } else Grafica <- NULL
+  
+  DD_Final <- list("Datos" = PreciosHist, "Grafica" = Grafica, 
                    "DD" = list("Orden" = ifelse(dd_min<dd_max, "Low", "High"),
                                "Valores" = list("Low" = list("V_low" = PreciosHist$Low[dd_min],
                                                              "F_low" = PreciosHist$TimeStamp[dd_min]),
@@ -236,14 +313,18 @@ DDU <- function(F_Inicial, F_Final, F_Inst, F_Ta, F_At, F_Ak) {
 }
 
 ## -- Prueba : Draw Down de una operacion
-# F_At <- "practice"
-# F_Ak <- "ada4a61b0d5bc0e5939365e01450b614-4121f84f01ad78942c46fc3ac777baa6"
-# F_Ta <- "America/Mexico_City"
-# F_In <- "EUR_USD"
-# F_Inicial <- as.POSIXct("2017-12-07 15:05:00", origin="1970-01-01")
-# F_Final   <- as.POSIXct("2017-12-07 22:15:00", origin="1970-01-01")
-# 
-# Datos <- DDU(F_Inicial, F_Final, F_In, F_Ta, F_At, F_Ak)
+F_At <- "practice"
+F_Ak <- "ada4a61b0d5bc0e5939365e01450b614-4121f84f01ad78942c46fc3ac777baa6"
+F_Ta <- "America/Mexico_City"
+F_In <- "EUR_USD"
+F_Ini <- as.POSIXct("2017-12-07 15:05:00", origin="1970-01-01")
+F_Fin <- as.POSIXct("2017-12-07 22:15:00", origin="1970-01-01")
+F_Grafica <- TRUE
+
+Datos <- DDU(F_Inicial = F_Ini, F_Final = F_Fin, F_Inst = F_In, F_Ta = F_Ta, F_At = F_At,
+             F_Ak = F_Ak,F_Grafica = F_Grafica)
+
+Datos$Grafica
 
 # -- -------------------------------------------------------------------- PnL de una operacion -- #
 # -- -------------------------------------------------------------------------------------------- #
