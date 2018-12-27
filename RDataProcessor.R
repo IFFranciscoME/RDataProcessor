@@ -185,12 +185,12 @@ return(cmaxx)
 
 DDU <- function(F_Ini, F_Fin, F_In, F_Ta, F_At, F_Ak, F_Grafica) {
   
-  F_At <- "practice"
-  F_Ak <- "ada4a61b0d5bc0e5939365e01450b614-4121f84f01ad78942c46fc3ac777baa6"
-  F_Ta <- "America/Mexico_City"
+  F_Ini <- as.POSIXct("2018-12-05 11:05:00 CST", origin = "1970-01-01")
+  F_Fin <- as.POSIXct("2018-12-05 15:45:00 CST", origin = "1970-01-01")
   F_In <- "EUR_USD"
-  F_Ini <- as.POSIXct("2017-12-07 15:05:00", origin="1970-01-01")
-  F_Fin <- as.POSIXct("2017-12-07 22:15:00", origin="1970-01-01")
+  F_Ta <- "America/Mexico_City"
+  F_At <- "practice"
+  F_Ak <- "ada4a61b0d5bc0e5939365e01450b614-4121f84f01ad78942c46fc3ac777baa6" 
   F_Grafica <- TRUE
   
   Fecha_Inicial <- F_Ini
@@ -208,7 +208,7 @@ DDU <- function(F_Ini, F_Fin, F_In, F_Ta, F_At, F_Ak, F_Grafica) {
   
   if(Fecha_Final > OA_HistMax) {
     
-    NPet <- ceiling(as.numeric(F_Final - F_Inicial)/2)
+    NPet <- ceiling(as.numeric(Fecha_Final - Fecha_Inicial)/2)
     Indices <- sort(seq(0, 3*NPet, 3), decreasing = TRUE)
     Fechas  <- c()
     for(i in 1:length(Indices)) Fechas[i] <- as.character(Fecha_Final-Indices[i])
@@ -225,19 +225,20 @@ DDU <- function(F_Ini, F_Fin, F_In, F_Ta, F_At, F_Ak, F_Grafica) {
   OA_Totales  <- do.call(rbind,PreciosHist)
   OA_Totales  <- OA_Totales[,1:5]
   
-  FechaCercana1 <- which(abs(OA_Totales$TimeStamp - F_Inicial) ==
-                           min(abs(OA_Totales$TimeStamp - F_Inicial)))[1]
-  FechaCercana2 <- which(abs(OA_Totales$TimeStamp - F_Final) ==
-                           min(abs(OA_Totales$TimeStamp - F_Final)))[1]
-  PreciosHist <- OA_Totales[FechaCercana1:FechaCercana2,]
+  FechaCercana1 <- which.min(abs(OA_Totales$TimeStamp - F_Ini))
+  FechaCercana2 <- which.min(abs(OA_Totales$TimeStamp - F_Fin))
+  PreciosHist   <- OA_Totales[FechaCercana1:FechaCercana2,]
   
   dd_min <- which.min(PreciosHist$Low)
   dd_max <- which.max(PreciosHist$High)
   
+  y_escala <- as.numeric(seq(min(PreciosHist$TimeStamp), max(PreciosHist$TimeStamp),
+                             (max(PreciosHist$TimeStamp) - min(PreciosHist$TimeStamp))/6))
+  
+  x_escala <- c(first(y_escala)-2*(y_escala[1]-y_escala[2]),
+                y_escala, last(y_escala)+2*(y_escala[1]-y_escala[2]))
+  
   if(F_Grafica)  {
-    
-    yscala <- seq(min(PreciosHist$Close), max(PreciosHist$Close),
-                  (max(PreciosHist$Close) - min(PreciosHist$Close))/10)
     
     MaxHigh_G <- which.max(PreciosHist$Close)
     MinLow_G  <- which.min(PreciosHist$Close)
@@ -249,13 +250,52 @@ DDU <- function(F_Ini, F_Fin, F_In, F_Ta, F_At, F_Ak, F_Grafica) {
       geom_segment(x = as.numeric(PreciosHist$TimeStamp[MaxHigh_G]),
                    xend = as.numeric(PreciosHist$TimeStamp[MaxHigh_G]),
                    y = 0, yend = as.numeric(PreciosHist$Close[MaxHigh_G]),
-                   linetype= 5, size=.75, colour = "dark grey", alpha=0.5) +
+                   linetype= "dashed", size=.5, colour = "dark grey", alpha=0.5) +
       
-      # -- Horizontal High
-      geom_segment(x = 0, xend = PreciosHist$TimeStamp[MaxHigh_G],
-                   y = as.numeric(PreciosHist$Close[MaxHigh_G]),
-                   yend = as.numeric(PreciosHist$Close[MaxHigh_G]),
-                   linetype= 5, size=.75, colour = "dark grey", alpha=0.5) +
+      # -- Vertical Low
+      geom_segment(x = as.numeric(PreciosHist$TimeStamp[MinLow_G]),
+                   xend = as.numeric(PreciosHist$TimeStamp[MinLow_G]),
+                   y = 0, yend = as.numeric(PreciosHist$Close[MinLow_G]),
+                   linetype= "dashed", size=.5, colour = "dark grey", alpha=0.35)
+      
+      if(MaxHigh_G <= MinLow_G) {
+       
+        Grafica_1 <- Grafica +  
+          
+          # -- Horizontal High
+          geom_segment(x = 0, xend = PreciosHist$TimeStamp[MaxHigh_G],
+                       y = as.numeric(PreciosHist$Close[MaxHigh_G]),
+                       yend = as.numeric(PreciosHist$Close[MaxHigh_G]),
+                       linetype= "dashed", size=.5, colour = "dark grey", alpha=0.5) +
+
+          # -- Horizontal Low
+          geom_segment(x = PreciosHist$TimeStamp[MinLow_G],
+                       xend = last(PreciosHist$TimeStamp),
+                       y = as.numeric(PreciosHist$Close[MinLow_G]),
+                       yend = as.numeric(PreciosHist$Close[MinLow_G]),
+                       linetype= "dashed", size=.5, colour = "dark grey", alpha=0.35)
+         
+      } else {
+        
+        Grafica_1 <- Grafica + 
+          
+          # -- Horizontal High
+          geom_segment(x = PreciosHist$TimeStamp[MaxHigh_G],
+                       xend = last(PreciosHist$TimeStamp),
+                       y = as.numeric(PreciosHist$Close[MaxHigh_G]),
+                       yend = as.numeric(PreciosHist$Close[MaxHigh_G]),
+                       linetype= "dashed", size=.5, colour = "dark grey", alpha=0.5) +
+          
+          # -- Horizontal Low
+          geom_segment(x = 0,
+                       xend = PreciosHist$TimeStamp[MinLow_G],
+                       y = as.numeric(PreciosHist$Close[MinLow_G]),
+                       yend = as.numeric(PreciosHist$Close[MinLow_G]),
+                       linetype= "dashed", size=.5, colour = "dark grey", alpha=0.35)
+
+      }
+
+    Grafica_2 <- Grafica_1 + 
       
       # -- Punto Exterior High
       geom_point(aes(x = PreciosHist$TimeStamp[MaxHigh_G],
@@ -264,43 +304,59 @@ DDU <- function(F_Ini, F_Fin, F_In, F_Ta, F_At, F_Ak, F_Grafica) {
       # -- Punto Interior High
       geom_point(aes(x = PreciosHist$TimeStamp[MaxHigh_G],
                      y=as.numeric(PreciosHist$Close[MaxHigh_G])), size=2, colour="white") + 
-    
-      # -- Vertical Low
-      geom_segment(x = as.numeric(PreciosHist$TimeStamp[MinLow_G]),
-                   xend = as.numeric(PreciosHist$TimeStamp[MinLow_G]),
-                   y = 0, yend = as.numeric(PreciosHist$Close[MinLow_G]),
-                   linetype= 5, size=.75, colour = "dark grey", alpha=0.5) +
-      
-      # -- Horizontal Low
-      geom_segment(x = 0, xend = PreciosHist$TimeStamp[MinLow_G],
-                   y = as.numeric(PreciosHist$Close[MinLow_G]),
-                   yend = as.numeric(PreciosHist$Close[MinLow_G]),
-                   linetype= 5, size=.75, colour = "dark grey", alpha=0.5) +
       
       # -- Punto Exterior Low
       geom_point(aes(x = PreciosHist$TimeStamp[MinLow_G],
                      y=as.numeric(PreciosHist$Close[MinLow_G])),
                  size=4, colour="steel blue") +
-     
+      
       # -- Punto Interior Low
       geom_point(aes(x = PreciosHist$TimeStamp[MinLow_G],
                      y=as.numeric(PreciosHist$Close[MinLow_G])),
-                 size=2, colour="white")  + 
+                 size=2, colour="white") +
       
-      labs(x=NULL, y=NULL, title=NULL) +
-      scale_y_continuous(breaks = round(seq(round(min(PreciosHist$Close),6),
-                                            round(max(PreciosHist$Close),6),
-                                            (round(max(PreciosHist$Close),6) - 
-                                             round(min(PreciosHist$Close),6))/10),4))
+      # -- Punto Exterior Close
+      geom_point(aes(x = last(PreciosHist$TimeStamp),
+                     y = as.numeric(last(PreciosHist$Close))),
+                 size=4, colour="steel blue") +
+      
+      # -- Punto Interior Close
+      geom_point(aes(x = last(PreciosHist$TimeStamp),
+                     y = as.numeric(last(PreciosHist$Close))),
+                 size=2, colour="white") +
+      
+      # -- Punto Exterior Open
+      geom_point(aes(x = first(PreciosHist$TimeStamp),
+                     y = as.numeric(first(PreciosHist$Close))),
+                 size=4, colour="steel blue") +
+      
+      # -- Punto Interior Open
+      geom_point(aes(x = first(PreciosHist$TimeStamp),
+                     y = as.numeric(first(PreciosHist$Close))),
+                 size=2, colour="white") +
     
-   
+      # -- Open to Low
+      geom_segment(x = first(PreciosHist$TimeStamp), xend = PreciosHist$TimeStamp[MinLow_G],
+                   y = as.numeric(first(PreciosHist$Close)),
+                   yend = as.numeric(PreciosHist$Close[MinLow_G]),
+                   linetype= "dashed", size=.5, colour = "dark grey", alpha=0.35) +
+      
+      # -- Open to High
+      geom_segment(x = first(PreciosHist$TimeStamp), xend = PreciosHist$TimeStamp[MaxHigh_G],
+                   y = as.numeric(first(PreciosHist$Close)),
+                   yend = as.numeric(PreciosHist$Close[MaxHigh_G]),
+                   linetype= "dashed", size=.5, colour = "dark grey", alpha=0.35) +
+      
+      labs(x=NULL, y=NULL, title=NULL) +  scale_y_continuous(
+        breaks = round(seq(round(min(PreciosHist$Close),5),
+                           round(max(PreciosHist$Close),5),
+        (round(max(PreciosHist$Close),5) - round(min(PreciosHist$Close),5))/12),5)) +
+  
+      scale_x_datetime(breaks = as.POSIXct(x_escala, origin ="1970-01-01"),
+                       labels = date_format("%d/%m/%y %H:%M"))
     
     
-    
-    
-    
-    
-    
+
   } else Grafica <- NULL
   
   DD_Final <- list("Datos" = PreciosHist, "Grafica" = Grafica, 
@@ -312,36 +368,22 @@ DDU <- function(F_Ini, F_Fin, F_In, F_Ta, F_At, F_Ak, F_Grafica) {
   return(DD_Final)
 }
 
-## -- Prueba : Draw Down de una operacion
-F_At <- "practice"
-F_Ak <- "ada4a61b0d5bc0e5939365e01450b614-4121f84f01ad78942c46fc3ac777baa6"
-F_Ta <- "America/Mexico_City"
-F_In <- "EUR_USD"
-F_Ini <- as.POSIXct("2017-12-07 15:05:00", origin="1970-01-01")
-F_Fin <- as.POSIXct("2017-12-07 22:15:00", origin="1970-01-01")
-F_Grafica <- TRUE
-
-Datos <- DDU(F_Inicial = F_Ini, F_Final = F_Fin, F_Inst = F_In, F_Ta = F_Ta, F_At = F_At,
-             F_Ak = F_Ak,F_Grafica = F_Grafica)
-
-Datos$Grafica
-
 # -- -------------------------------------------------------------------- PnL de una operacion -- #
 # -- -------------------------------------------------------------------------------------------- #
 
 PnL <- function(p_tipo, p_orden, p_open, p_high, p_low, p_close, p_mpip, p_vpip, p_tp, p_sl) {
   
-  # i <- 2
-  # p_tipo  <- p_OA_Totales$Operacion_g[i]
-  # p_orden <- p_OA_Totales$Orden[i]
-  # p_open  <- p_OA_Totales$Open[i]
-  # p_high  <- p_OA_Totales$High[i]
-  # p_low   <- p_OA_Totales$Low[i]
-  # p_close <- p_OA_Totales$Close[i]
-  # p_mpip  <- 10000
-  # p_vpip  <- 1
-  # p_tp    <- 20
-  # p_sl    <- 10
+  i <- 10
+  p_tipo  <- p_OA_Totales$Operacion_g[i]
+  p_orden <- p_OA_Totales$Orden[i]
+  p_open  <- p_OA_Totales$Open[i]
+  p_high  <- p_OA_Totales$High[i]
+  p_low   <- p_OA_Totales$Low[i]
+  p_close <- p_OA_Totales$Close[i]
+  p_mpip  <- 10000
+  p_vpip  <- 1
+  p_tp    <- 40
+  p_sl    <- 20
   
   vl <- (p_open - p_low)*p_mpip
   vc <- (p_open - p_close)*p_mpip
@@ -402,8 +444,8 @@ PnL <- function(p_tipo, p_orden, p_open, p_high, p_low, p_close, p_mpip, p_vpip,
     #  -- --------------------------------- Compra + High primero + NO TP + NO SL + Close -- (9) -- #
   } else if (p_tipo == 1 & p_orden == "High" & p_tp > ch & -p_sl <= cl) {
     mensaje <- "Caso (9): Compra & High primero & TP no alcanzado & SL no alcanzado & Cierre al close"
-    pnl_pip <- vc
-    pnl_usd <- vc*p_vpip
+    pnl_pip <- cc
+    pnl_usd <- cc*p_vpip
     
     #  -- ------------------------------------------------- Compra + Low primero + SI SL -- (10) -- #
   } else if (p_tipo == 1 & p_orden == "Low" & -p_sl > cl) {
