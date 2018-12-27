@@ -373,17 +373,17 @@ DDU <- function(F_Ini, F_Fin, F_In, F_Ta, F_At, F_Ak, F_Grafica) {
 
 PnL <- function(p_tipo, p_orden, p_open, p_high, p_low, p_close, p_mpip, p_vpip, p_tp, p_sl) {
   
-  i <- 10
-  p_tipo  <- p_OA_Totales$Operacion_g[i]
-  p_orden <- p_OA_Totales$Orden[i]
-  p_open  <- p_OA_Totales$Open[i]
-  p_high  <- p_OA_Totales$High[i]
-  p_low   <- p_OA_Totales$Low[i]
-  p_close <- p_OA_Totales$Close[i]
-  p_mpip  <- 10000
-  p_vpip  <- 1
-  p_tp    <- 40
-  p_sl    <- 20
+  # i <- 10
+  # p_tipo  <- p_OA_Totales$Operacion_g[i]
+  # p_orden <- p_OA_Totales$Orden[i]
+  # p_open  <- p_OA_Totales$Open[i]
+  # p_high  <- p_OA_Totales$High[i]
+  # p_low   <- p_OA_Totales$Low[i]
+  # p_close <- p_OA_Totales$Close[i]
+  # p_mpip  <- 10000
+  # p_vpip  <- 1
+  # p_tp    <- 40
+  # p_sl    <- 20
   
   vl <- (p_open - p_low)*p_mpip
   vc <- (p_open - p_close)*p_mpip
